@@ -1,73 +1,67 @@
 package web.config;
 
-import org.apache.commons.dbcp2.BasicDataSource;
+import org.hibernate.jpa.HibernatePersistenceProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.env.Environment;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
-
-
 import javax.sql.DataSource;
 import java.util.Properties;
 
-
 @Configuration
-@PropertySource("classpath:db.properties")
-@EnableJpaRepositories("web.repository")
 @EnableTransactionManagement
-@ComponentScan("web.service")
+@PropertySource(value = "classpath:db.properties")
+@ComponentScan(value  ="web")
 public class AppConfig {
-
     @Autowired
-    private Environment env;
+    private Environment environment;
 
+    public AppConfig(Environment environment) {
+        this.environment = environment;
+    }
+
+    private HibernateJpaVendorAdapter vendorAdapter() {
+        HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
+        vendorAdapter.setShowSql(true);
+        return vendorAdapter;
+    }
     @Bean
-    public DataSource getDataSource() {
-        BasicDataSource dataSource = new BasicDataSource();
-        dataSource.setDriverClassName(env.getProperty("db.driver"));
-        dataSource.setUrl(env.getRequiredProperty("db.url"));
-        dataSource.setUsername(env.getRequiredProperty("db.username"));
-        dataSource.setPassword(env.getRequiredProperty("db.password"));
-        dataSource.setInitialSize(Integer.valueOf(env.getRequiredProperty("db.initialSize")));
-        dataSource.setMinIdle(Integer.valueOf(env.getRequiredProperty("db.minIdle")));
-        dataSource.setMaxIdle(Integer.valueOf(env.getRequiredProperty("db.maxIdle")));
-        dataSource.setTimeBetweenEvictionRunsMillis(Long.valueOf(env.getRequiredProperty("db.timeBetweenEvictionRunsMillis")));
-        dataSource.setMinEvictableIdleTimeMillis(Long.valueOf((env.getRequiredProperty("minEvictableIdleTimeMillis"))));
-        dataSource.setTestOnBorrow(Boolean.valueOf(env.getRequiredProperty("db.testOnBorrow")));
-        dataSource.setValidationQuery(env.getRequiredProperty("db.validationQuery"));
-
+    public DataSource dataSource() {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName(environment.getProperty("db.driver"));
+        dataSource.setUrl(environment.getProperty("db.url"));
+        dataSource.setUsername(environment.getProperty("db.username"));
+        dataSource.setPassword(environment.getProperty("db.password"));
         return dataSource;
     }
 
-    @Bean
-    public LocalContainerEntityManagerFactoryBean getEntityManager() {
-        LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
-        em.setDataSource(getDataSource());
-        em.setPackagesToScan(env.getRequiredProperty("db.properties"));
-
+    @Bean()
+    public LocalContainerEntityManagerFactoryBean getEntityManagerFactory() {
         Properties props = new Properties();
-        props.put("hibernate.show_sql", env.getProperty("hibernate.show_sql"));
-        props.put("hibernate.hbm2ddl.auto", env.getProperty("hibernate.hbm2ddl.auto"));
-        props.put("hibernate.dialect", env.getProperty("hibernate.dialect"));
+        props.put("hibernate.show_sql", environment.getProperty("hibernate.show_sql"));
+        props.put("hibernate.hbm2ddl.auto", environment.getProperty("hibernate.hbm2ddl.auto"));
+        props.put("hibernate.dialect", environment.getProperty("hibernate.dialect"));
 
-        em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-        em.setJpaProperties(props);
-        return em;
+        LocalContainerEntityManagerFactoryBean factoryBean = new LocalContainerEntityManagerFactoryBean();
+        factoryBean.setJpaVendorAdapter(vendorAdapter());
+        factoryBean.setDataSource(dataSource());
+        factoryBean.setJpaProperties(props);
+        factoryBean.setPersistenceProviderClass(HibernatePersistenceProvider.class);
+        factoryBean.setPackagesToScan("web.model");
+        return factoryBean;
     }
 
     @Bean
-    public PlatformTransactionManager transactionManager() {
-        JpaTransactionManager manager = new JpaTransactionManager();
-        manager.setEntityManagerFactory(getEntityManager().getObject());
-        return manager;
+    public JpaTransactionManager transactionManager() {
+        JpaTransactionManager transactionManager = new JpaTransactionManager();
+        transactionManager.setEntityManagerFactory(getEntityManagerFactory().getObject());
+        return transactionManager;
     }
-
 }

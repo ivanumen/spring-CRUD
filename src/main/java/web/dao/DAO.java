@@ -1,12 +1,10 @@
-package web.service;
+package web.dao;
 
-import org.springframework.stereotype.Service;
 import web.model.User;
 
 import java.util.List;
 
-@Service
-public interface UserService {
+public interface DAO {
 
     List<User> index();
 
